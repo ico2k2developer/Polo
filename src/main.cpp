@@ -6,7 +6,8 @@
 #include <main.h>
 
 timerp timers[2];
-uint_fast64_t count;
+uint_fast64_t err,count,mcs,last_interval;
+uint8_t coil;
 
 void setup()
 {
@@ -52,7 +53,6 @@ void setup()
 #endif
 #if USE_DISPLAY
         rtlprintf("%hhu.%hhu",ip[2],ip[3]);
-        display.setCursor(0,0);
         display.display();
 #endif
     }
@@ -62,6 +62,7 @@ void setup()
     Serial.printf("Using sample rate %llu Hz\n",SAMPLE_RATE);
 #endif
 #if USE_DISPLAY
+    display.setCursor(0,0);
     display.printf("S.R. rate %llu "
 #if SAMPLE_RATE >= 1000ULL
     "kHz",SAMPLE_RATE / 1000ULL);
@@ -70,7 +71,7 @@ void setup()
 #endif
 #endif
     timers[0] = timer_new(TIMER_ID_MAIN,1000ULL * 1000ULL / SAMPLE_RATE);
-    timers[1] = timer_new(TIMER_ID_OUTPUT,1000ULL);
+    timers[1] = timer_new(TIMER_ID_OUTPUT,1000ULL * 1000ULL);
     timer_rearm(timers[0]);
     timer_rearm(timers[1]);
     timer_reset(timers[0]);
@@ -82,7 +83,9 @@ void setup()
                   timer_id(timers[1]),timers[1]->id,timers[1]->start);
     Serial.print("Setup ended, going into loop()\n");
 #endif
-    count = 0;
+    last_interval = err = count = 0;
+    coil = getCoil();
+    mcs = micros();
 }
 
 
@@ -93,19 +96,7 @@ void loop()
 
 uint_fast64_t timer_ms(timerp t)
 {
-    switch (timer_id(t))
-    {
-        case TIMER_ID_MAIN:
-        {
-            return micros();
-        }
-        case TIMER_ID_OUTPUT:
-        {
-            return millis();
-        }
-        default:
-            return 0;
-    }
+    return micros64();
 }
 
 trigger_result timer_triggered(const timerp t, const uint_fast64_t triggered)
@@ -114,16 +105,27 @@ trigger_result timer_triggered(const timerp t, const uint_fast64_t triggered)
     {
         case TIMER_ID_MAIN:
         {
-            count++;
+            uint8_t read = getCoil();
+            if(read != coil && read == PIN_COIL_OFF)
+            {
+                coil = read;
+                uint_fast64_t interval = triggered - mcs;
+                if(last_interval == 0)
+                    last_interval = interval;
+                else if(interval > (last_interval / 5 * 6) || interval < (last_interval / 5 * 4))
+                    err++;
+                count++;
+                mcs = micros();
+            }
             return REARM;
         }
         case TIMER_ID_OUTPUT:
         {
-            memset(display.getBuffer() + 1 * SCREEN_WIDTH,0,SCREEN_WIDTH * 1 * sizeof(uint8_t));
+            memset(display.getBuffer() + (1 * SCREEN_WIDTH),0,SCREEN_WIDTH * 3 * sizeof(uint8_t));
             display.setCursor(0,8);
-            display.printf("Count: %llu",count);
+            display.printf("Time: %llu s\nCount: %llu\nErrors: %llu",triggered / 1000000ULL,count,err);
             display.display();
-            count = 0;
+            err = count = 0;
             return REARM;
         }
         default:

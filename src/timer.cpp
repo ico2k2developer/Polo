@@ -22,7 +22,7 @@ handler_result timer_handle(timerp t)
     if(timer_armed(t))
     {
         uint_fast64_t ms;
-        if(((ms = timer_ms(t)) - t->start) > t->duration)
+        if(((ms = timer_ms(t)) - t->start) >= t->duration)
         {
             result = TRIGGERED;
             if(timer_triggered(t, ms) == NO_REARM)
