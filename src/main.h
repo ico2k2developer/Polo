@@ -27,5 +27,6 @@
 
 #define TIMER_ID_MAIN   0x10
 #define TIMER_ID_OUTPUT 0x20
+#define TIMER_ID_ALERT  0x30
 
 #endif //POLO_MAIN_H

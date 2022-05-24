@@ -5,8 +5,8 @@
 
 #include <main.h>
 
-timerp timers[2];
-uint_fast64_t err,count,mcs,last_interval;
+timerp timers[3];
+uint_fast64_t err,count,mcs,interval,last_interval,last_err;
 uint8_t coil;
 
 void setup()
@@ -23,6 +23,7 @@ void setup()
 
     setupPickup();
     setupCoil();
+    setupLed();
 
 #if USE_WIFI
     WiFi.mode(WIFI_STA);
@@ -63,7 +64,7 @@ void setup()
 #endif
 #if USE_DISPLAY
     display.setCursor(0,0);
-    display.printf("S.R. rate %llu "
+    display.printf("Scan rate %llu "
 #if SAMPLE_RATE >= 1000ULL
     "kHz",SAMPLE_RATE / 1000ULL);
 #else
@@ -72,6 +73,7 @@ void setup()
 #endif
     timers[0] = timer_new(TIMER_ID_MAIN,1000ULL * 1000ULL / SAMPLE_RATE);
     timers[1] = timer_new(TIMER_ID_OUTPUT,1000ULL * 1000ULL);
+    timers[2] = timer_new(TIMER_ID_ALERT,100UL * 1000ULL);
     timer_rearm(timers[0]);
     timer_rearm(timers[1]);
     timer_reset(timers[0]);
@@ -83,7 +85,7 @@ void setup()
                   timer_id(timers[1]),timers[1]->id,timers[1]->start);
     Serial.print("Setup ended, going into loop()\n");
 #endif
-    last_interval = err = count = 0;
+    last_interval = last_err = err = count = 0;
     coil = getCoil();
     mcs = micros();
 }
@@ -106,27 +108,44 @@ trigger_result timer_triggered(const timerp t, const uint_fast64_t triggered)
         case TIMER_ID_MAIN:
         {
             uint8_t read = getCoil();
-            if(read != coil && read == PIN_COIL_OFF)
+            if(read != coil)
             {
                 coil = read;
-                uint_fast64_t interval = triggered - mcs;
-                if(last_interval == 0)
-                    last_interval = interval;
-                else if(interval > (last_interval / 5 * 6) || interval < (last_interval / 5 * 4))
-                    err++;
-                count++;
-                mcs = micros();
+                if(read == PIN_COIL_OFF)
+                {
+                    interval = triggered - mcs;
+                    if(last_interval == 0)
+                        last_interval = interval;
+                    else if(interval > (last_interval * 6 / 5) || interval < (last_interval * 4 / 5))
+                    {
+                        err++;
+                        last_interval = interval;
+                    }
+                    count++;
+                    mcs = timer_ms(t);
+                }
             }
             return REARM;
         }
         case TIMER_ID_OUTPUT:
         {
+            if(last_err != err)
+            {
+                setLed(ON);
+                timer_reset(timers[2]);
+                timer_rearm(timers[2]);
+                last_err = err;
+            }
             memset(display.getBuffer() + (1 * SCREEN_WIDTH),0,SCREEN_WIDTH * 3 * sizeof(uint8_t));
             display.setCursor(0,8);
-            display.printf("Time: %llu s\nCount: %llu\nErrors: %llu",triggered / 1000000ULL,count,err);
+            display.printf("Itervl: %llu mcs\nCount: %llu\nErrors: %llu",interval,count,err);
             display.display();
-            err = count = 0;
             return REARM;
+        }
+        case TIMER_ID_ALERT:
+        {
+            setLed(OFF);
+            return NO_REARM;
         }
         default:
 #if USE_SERIAL
