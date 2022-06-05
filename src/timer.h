@@ -33,7 +33,7 @@ typedef enum
 extern uint_fast64_t timer_ms(timerp t);
 extern trigger_result timer_triggered(timerp t, uint_fast64_t triggered);
 
-handler_result timer_handle_all(timerp* timers, size_t count);
+void timer_handle_all(timerp* timers, size_t count);
 handler_result timer_handle(timerp timer);
 
 void timer_reset(timerp t);

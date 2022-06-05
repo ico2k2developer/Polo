@@ -4,16 +4,11 @@
 
 #include <timer.h>
 
-handler_result timer_handle_all(timerp* timers, size_t count)
+void timer_handle_all(timerp* timers, size_t count)
 {
-    handler_result result = NOT_TRIGGERED;
     size_t i;
     for(i = 0; i < count; i++)
-    {
-        if(timer_handle(timers[i]) == TRIGGERED)
-            result = TRIGGERED;
-    }
-    return result;
+        timer_handle(timers[i]);
 }
 
 handler_result timer_handle(timerp t)

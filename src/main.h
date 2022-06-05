@@ -12,6 +12,7 @@
 #error "Source files targetting ESP8266 in a non ESP8266 project."
 #endif
 
+#include <Arduino.h>
 #include <board.h>
 #include <timer.h>
 
@@ -23,10 +24,8 @@
 #include <display.h>
 #endif
 
-#define SAMPLE_RATE 600ULL
+#define INTERVAL_LIMIT_MAX(i)  (((i) * 9 / 5))
 
-#define TIMER_ID_MAIN   0x10
-#define TIMER_ID_OUTPUT 0x20
-#define TIMER_ID_ALERT  0x30
+void error();
 
 #endif //POLO_MAIN_H

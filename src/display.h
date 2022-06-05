@@ -12,6 +12,9 @@
 #define SCREEN_WIDTH            128
 #define SCREEN_HEIGHT           64
 
+#define clearRows(start,count) memset(display.getBuffer() + (start * SCREEN_WIDTH),0, \
+                                SCREEN_WIDTH * count * sizeof(uint8_t))
+
 extern Adafruit_SSD1306 display;
 
 unsigned char rtlprintf(const char* format, ...);
